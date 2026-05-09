@@ -113,10 +113,8 @@ docs/
   main_paper.md             ← Paper text (markdown export).
   main_paper_media/         ← Paper figures.
   tables/
-    table7_qmle.md          ← NEW. Real QMLE Table 7.
-    table7_qmle_analysis.md ← NEW. Narrative analysis.
-    table7.md               ← Original proxy Table 7.
-    table7_analysis.md      ← Original proxy analysis.
+    table7_qmle.md          ← Real QMLE Table 7 (the deliverable).
+    table7_qmle_analysis.md ← Narrative analysis with proxy-vs-QMLE comparison.
   learning/00_overview/
     01_math_story.md        ← The paper's math, end-to-end.
     02_toolkit_and_choices.md  ← Methods used and what alternatives existed.

@@ -53,5 +53,10 @@ docs/software_choices_r_vs_python.md
 docs/table7_rebuild_plan.md
 docs/learning/_archive/
 
+# Old proxy outputs — superseded by docs/tables/table7_qmle.md
+# (the QMLE analysis already includes a side-by-side comparison with the proxy values)
+docs/tables/table7.md
+docs/tables/table7_analysis.md
+
 # Plan artifacts (local Claude-generated planning docs)
 .claude/

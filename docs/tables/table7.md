@@ -1,9 +1,0 @@
-# Table 7. Robustness Test: Structural Break Comparison Across Alternative ETF Dates
-
-| Date       | Event                                                            | Delta Jump Volatility                                            | Delta Short-run Spillover                                                        | Delta Long-run Spillover                                                             |
-|:-----------|:-----------------------------------------------------------------|:-----------------------------------------------------------------|:---------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------|
-| 2023-08-29 | Grayscale court ruling                                           | Strong decrease (BTC Δ=-0.0003, p=0.000; ETH Δ=-0.0007, p=0.000) | Weak short-run spillover decrease (a12*=-0.0977, p=0.266; a21*=-0.3199, p=0.330) | No robust long-run spillover increase (g12*=-0.0795, p=0.597; g21*=-0.4102, p=0.449) |
-| 2023-10-23 | ETF enthusiasm / DTCC listing attention / Grayscale case closure | Strong decrease (BTC Δ=-0.0002, p=0.000; ETH Δ=-0.0006, p=0.000) | Weak short-run spillover decrease (a12*=-0.1031, p=0.239; a21*=-0.3400, p=0.295) | No robust long-run spillover increase (g12*=-0.1494, p=0.346; g21*=-0.5782, p=0.291) |
-| 2024-01-10 | Official SEC spot Bitcoin ETF approval                           | Strong decrease (BTC Δ=-0.0002, p=0.000; ETH Δ=-0.0006, p=0.000) | Weak short-run spillover decrease (a12*=-0.0962, p=0.262; a21*=-0.3169, p=0.298) | No robust long-run spillover increase (g12*=-0.1539, p=0.336; g21*=-0.4833, p=0.367) |
-
-Note: Jump-volatility deltas are computed from recovered daily RV/CV/JV panels. Spillover deltas are BEKK-style proxy estimates from VAR-X residual shocks and lagged volatility terms; regenerate this table if the full recovered R QMLE BEKK estimator is ported or run in an R environment.
