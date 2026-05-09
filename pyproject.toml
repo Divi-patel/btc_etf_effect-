@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "btc-eth-research"
+version = "0.1.0"
+description = "Reproducible Table 7 rebuild for BTC/ETH volatility spillover research."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Divykumar Patel", email = "dpatel103@stevens.edu" },
+  { name = "Jingrui Li" },
+  { name = "Apoo Koticha" },
+]
+keywords = ["BEKK", "GARCH", "QMLE", "volatility", "cryptocurrency", "econometrics"]
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "numdifftools",
+  "numpy",
+  "pandas",
+  "pyarrow",
+  "python-dotenv",
+  "requests",
+  "ruptures",
+  "scipy",
+  "statsmodels",
+  "tabulate",
+  "yfinance",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

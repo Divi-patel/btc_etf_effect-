@@ -1,0 +1,57 @@
+# OS / editor
+.DS_Store
+.AppleDouble
+.LSOverride
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python environments and caches
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Build artifacts
+build/
+dist/
+*.egg
+
+# Secrets — only .env.example is tracked
+.env
+.env.local
+
+# Generated data (reproducible from scripts/)
+data/raw/*
+!data/raw/.gitkeep
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*.parquet
+data/processed/*.zip
+data/processed/*.tmp
+data/processed/*.csv
+!data/processed/.gitkeep
+
+# Local-only archive of the original lab GitHub repo
+# (legacy R/Python code we cloned for reference; not part of this work)
+lab/
+
+# Large binaries — DOCX paper exports (regenerable from docs/main_paper.md)
+docs/*.docx
+
+# Internal planning / process docs — kept locally for reference, not for the repo
+docs/recovered_repo_audit.md
+docs/software_choices_r_vs_python.md
+docs/table7_rebuild_plan.md
+docs/learning/_archive/
+
+# Plan artifacts (local Claude-generated planning docs)
+.claude/
