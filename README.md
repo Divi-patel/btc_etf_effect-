@@ -19,14 +19,16 @@ Pipeline (all pure Python, no R dependency):
 scripts/fetch_yfinance_daily.py      # daily BTC, ETH, VIX from yfinance
 scripts/run_table7_qmle.py           # 3-break Table 7 generation
                                      #   (~12 min on a modern laptop)
+scripts/generate_table7_docx.py      # final Word-format deliverable
 ```
 
 Outputs:
 
 ```
 data/processed/table7_qmle_results.csv     # wide table: params, SEs, p-values, diagnostics
-docs/tables/table7_qmle.md                 # human-readable Table 7
-docs/tables/table7_qmle_analysis.md        # narrative comparison vs the paper's Table 5
+docs/tables/table7_qmle.md                 # human-readable Table 7 (markdown)
+docs/tables/table7_qmle_analysis.md        # narrative comparison vs paper Table 5
+docs/Table 7 Robustness.docx               # Word-format final deliverable (the table to share)
 ```
 
 The core BEKK module lives at [`src/btc_eth_research/bekk/`](src/btc_eth_research/bekk/) — eight files
@@ -50,6 +52,7 @@ python3.12 -m venv .venv
 ```bash
 .venv/bin/python scripts/fetch_yfinance_daily.py
 .venv/bin/python scripts/run_table7_qmle.py
+.venv/bin/python scripts/generate_table7_docx.py
 ```
 
 The first script writes `data/interim/yfinance_daily.parquet` (~30 KB,
@@ -62,6 +65,11 @@ The second script fits BEKK QMLE three times — at break dates 2023-08-29,
 - `docs/tables/table7_qmle.md` — markdown rendering with significance stars.
 - `docs/tables/table7_qmle_analysis.md` — narrative comparing the three
   dates and contrasting with the paper's published numbers.
+
+The third script populates the Word-format deliverable
+`docs/Table 7 Robustness.docx` from the QMLE CSV plus the recovered
+volatility panel — this is the version intended for sharing with
+co-authors.
 
 ### Reproduce Table 2 (RV/CV/JV from 5-minute data)
 

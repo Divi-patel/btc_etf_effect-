@@ -46,6 +46,8 @@ lab/
 
 # Large binaries — DOCX paper exports (regenerable from docs/main_paper.md)
 docs/*.docx
+# But DO commit the populated Table 7 robustness output (the deliverable)
+!docs/Table 7 Robustness.docx
 
 # Internal planning / process docs — kept locally for reference, not for the repo
 docs/recovered_repo_audit.md

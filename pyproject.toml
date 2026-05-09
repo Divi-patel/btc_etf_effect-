@@ -20,6 +20,7 @@ dependencies = [
   "numpy",
   "pandas",
   "pyarrow",
+  "python-docx",
   "python-dotenv",
   "requests",
   "ruptures",
