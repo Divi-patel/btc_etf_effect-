@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
-"""Populate `docs/Table 7 Robustness.docx` with the real QMLE numbers.
+"""Populate the Table 7 Robustness deliverable in two formats.
 
-The original `Table 7 Robustness.docx` is a template the co-authors created
-to lay out the *expected* pattern for the robustness table — placeholder
-cells like "Strong decrease (as in paper)" / "weak/not as strong". This
-script replaces those placeholders with the actual values produced by:
-
+Inputs:
     - data/processed/table7_qmle_results.csv  (BEKK QMLE spillover params)
     - data/interim/recovered_daily_volatility.parquet  (jump-volatility panel)
+    - docs/Table 7 Robustness.docx  (existing Word template the co-authors
+      created with placeholder cells — script overwrites the cells with the
+      real numbers but preserves the title, header paragraphs, and styling)
 
-It rewrites the 4x4 robustness table in the docx with concrete numbers
-(deltas, p-values, significance stars) for each of the three candidate
-break dates: 2023-08-29, 2023-10-23, 2024-01-10.
+Outputs:
+    - docs/Table 7 Robustness.docx  (Word version — for editing / sharing)
+    - docs/Table_7_Robustness.md    (Markdown version — renders inline on
+                                     GitHub, the professor-shareable link)
 
-Output is written back to `docs/Table 7 Robustness.docx` — same filename,
-populated content. Keep a backup if you want the empty template preserved.
+Both files contain the same numbers. The markdown version is what to link
+from a chat or email — it previews directly in any browser. The Word
+version is for whoever wants to edit or include it in a paper draft.
 """
 
 from __future__ import annotations
@@ -58,6 +59,12 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=DOCS_DIR / "Table 7 Robustness.docx",
+    )
+    p.add_argument(
+        "--markdown-output",
+        type=Path,
+        default=DOCS_DIR / "Table_7_Robustness.md",
+        help="Markdown twin of the docx (renders inline on GitHub).",
     )
     return p.parse_args()
 
@@ -186,6 +193,103 @@ def main() -> None:
 
     doc.save(args.output)
     print(f"wrote {args.output}")
+
+    # ---- Also emit a markdown twin for inline GitHub rendering ----
+    md_lines: list[str] = []
+    md_lines.append(
+        "# Table 7. Robustness Test — Structural Break Comparison Across Alternative ETF Dates\n\n"
+    )
+    md_lines.append(
+        "Re-estimation of the BTC/ETH BEKK(1,1) QMLE at three candidate break dates,\n"
+        "with Bollerslev–Wooldridge sandwich standard errors. The bold row\n"
+        "(**Oct 23, 2023**) is the paper's baseline.\n\n"
+    )
+    md_lines.append("**Alternative dates:**\n\n")
+    md_lines.append("- **Aug 29, 2023** → Grayscale court ruling.\n")
+    md_lines.append("- **Oct 23, 2023** → DTCC tweet / Grayscale case closure (paper baseline).\n")
+    md_lines.append("- **Jan 10, 2024** → official SEC spot Bitcoin ETF approval.\n\n")
+    md_lines.append("**Re-estimated quantities at each date:**\n\n")
+    md_lines.append("- Δ Jump Volatility (`JV`) — Welch t-test on pre vs post-break daily JV.\n")
+    md_lines.append("- Δ Short-run spillover (`a12*`, `a21*`) — BEKK ARCH cross-asset shifts.\n")
+    md_lines.append("- Δ Long-run spillover (`g12*`, `g21*`) — BEKK GARCH cross-asset shifts.\n\n")
+    md_lines.append(
+        "Significance: `*` p < 0.10, `**` p < 0.05, `***` p < 0.01.\n\n"
+    )
+
+    md_lines.append(
+        "| Date | Δ Jump Volatility | Δ Short-run Spillover | Δ Long-run Spillover |\n"
+        "|---|---|---|---|\n"
+    )
+
+    def _escape_stars(text: str) -> str:
+        # Escape every literal `*` so GitHub markdown does not interpret
+        # significance stars as bold/italic markers. Single pass is correct;
+        # multi-pass would double-escape.
+        return text.replace("*", r"\*")
+
+    for bd in chrono:
+        cells = rows_by_date[bd]
+        label = date_label[bd]
+        jv = _escape_stars(cells["jump"])
+        sr = _escape_stars(cells["short"])
+        lr = _escape_stars(cells["long"])
+        if bd == date(2023, 10, 23):
+            # Wrap each cell in bold; significance stars are now safely escaped.
+            label = f"**{label}**"
+            jv, sr, lr = f"**{jv}**", f"**{sr}**", f"**{lr}**"
+        md_lines.append(f"| {label} | {jv} | {sr} | {lr} |\n")
+
+    md_lines.append("\n## Reading the table\n\n")
+    md_lines.append(
+        "At the **Oct 23, 2023 baseline** all four spillover-shift parameters "
+        "(`a12*`, `a21*`, `g12*`, `g21*`) are individually significant and signed "
+        "as the paper's economic story predicts:\n\n"
+        "- Short-run cross-asset spillovers **weaken** post-break (`a*` negative).\n"
+        "- Long-run cross-asset spillovers **strengthen** post-break (`g*` positive).\n\n"
+        "At the alternative dates the signal weakens:\n\n"
+        "- **Aug 29, 2023:** three of four spillover shifts significant — `g21*` "
+        "loses significance. The pattern is the same as Oct 23 but slightly weaker.\n"
+        "- **Jan 10, 2024:** only two of four spillover shifts significant — both "
+        "`a12*` and `g12*` (i.e., the cross-asset effects on Bitcoin) become "
+        "insignificant. By the time of the official SEC approval, the regime "
+        "change is no longer detectable from the BTC side, suggesting the market "
+        "had already priced in the news at the October enthusiasm date.\n\n"
+        "Jump-volatility deltas (`ΔJV`) are highly significant at all three dates "
+        "and show comparable magnitudes — i.e., jump-volatility decline is a "
+        "broader feature of the 2023–2024 regulatory cycle, not a unique signature "
+        "of any single date. The discriminator across dates is the spillover "
+        "structure, where Oct 23 wins on every individual parameter.\n\n"
+    )
+    md_lines.append("## Method note\n\n")
+    md_lines.append(
+        "- **`ΔJV`** is the change in mean daily jump variation "
+        "(`JV = max(RV − CV, 0)`) pre vs post break, with a Welch (unequal-variance) "
+        "t-test p-value. Daily `RV` and `CV` (TBPV) are computed from 5-minute "
+        "Coinbase klines via `src/btc_eth_research/volatility.py`.\n"
+        "- **`a12*, a21*, g12*, g21*`** are the structural-break shift parameters "
+        "in a BEKK(1,1) QMLE re-estimated independently at each break date. "
+        "Inference uses Bollerslev–Wooldridge sandwich standard errors. The "
+        "estimator lives at `src/btc_eth_research/bekk/`.\n"
+        "- **Why these numbers differ from the paper's published Table 7.** The "
+        "paper's Table 7 used a *proxy* estimator (OLS regressions on lagged "
+        "residual products plus dummy interactions) that was not actually a "
+        "BEKK QMLE — see the paper's own footnote and `CAVEATS.md`. This rebuild "
+        "replaces the proxy with a real QMLE estimator. The headline four "
+        "parameters at Oct 23, 2023 now match the paper's Table 5 (the *main* "
+        "result, properly estimated) within sign and ~10–50% magnitude.\n\n"
+    )
+    md_lines.append("## Reproduce\n\n")
+    md_lines.append("```bash\n")
+    md_lines.append(".venv/bin/python scripts/fetch_yfinance_daily.py\n")
+    md_lines.append(".venv/bin/python scripts/run_table7_qmle.py\n")
+    md_lines.append(".venv/bin/python scripts/generate_table7_docx.py\n")
+    md_lines.append("```\n\n")
+    md_lines.append(
+        "See [`CAVEATS.md`](../CAVEATS.md) for documented methodological notes.\n"
+    )
+
+    args.markdown_output.write_text("".join(md_lines))
+    print(f"wrote {args.markdown_output}")
 
 
 if __name__ == "__main__":

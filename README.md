@@ -1,5 +1,10 @@
 # BTC/ETH ETF Volatility-Spillover Research — Reproducible Rebuild
 
+> **📊 Final result: [Table 7. Robustness Test](docs/Table_7_Robustness.md)** — the
+> rebuilt robustness table with QMLE BEKK numbers at the three candidate ETF
+> dates (renders inline on GitHub). The same content as a Word file is at
+> [docs/Table 7 Robustness.docx](docs/Table%207%20Robustness.docx).
+
 This repository rebuilds **Table 7** of the paper "Volatility Dynamics and
 Spillovers in Cryptocurrency Markets: Evidence from the Bitcoin ETF
 Approval" (Li, Patel, Koticha) using a real BEKK(1,1) QMLE estimator
