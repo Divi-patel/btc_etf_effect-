@@ -26,6 +26,8 @@ from pathlib import Path
 
 import pandas as pd
 import docx
+from docx.enum.table import WD_ALIGN_VERTICAL
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Pt, RGBColor
 from scipy import stats
 
@@ -35,6 +37,16 @@ from btc_eth_research.config import (
     INTERIM_DATA_DIR,
     PROCESSED_DATA_DIR,
 )
+
+
+# Match the paper's body font convention (verified by inspecting the
+# main paper docx — Times New Roman, 12pt body, Tables on the
+# "Table Grid" style).
+BODY_FONT = "Times New Roman"
+TITLE_SIZE = Pt(12)
+DESC_SIZE = Pt(12)
+HEADER_SIZE = Pt(10)
+CELL_SIZE = Pt(10)
 
 
 # Paper baseline (Table 5 of the published paper, break = 2023-10-23).
@@ -115,58 +127,113 @@ def jv_delta_test(volatility: pd.DataFrame, symbol: str, break_date: date) -> tu
     return delta, float(p)
 
 
-def jump_vol_cell(volatility: pd.DataFrame, break_date: date) -> str:
+def jump_vol_cell(volatility: pd.DataFrame, break_date: date) -> list[str]:
+    """Return two lines (BTC, ETH) — rendered as a 2-line cell."""
     btc_d, btc_p = jv_delta_test(volatility, "BTCUSDT", break_date)
     eth_d, eth_p = jv_delta_test(volatility, "ETHUSDT", break_date)
-    return (
-        f"BTC ΔJV = {btc_d:+.6f}{stars(btc_p)} (p = {btc_p:.4f}); "
-        f"ETH ΔJV = {eth_d:+.6f}{stars(eth_p)} (p = {eth_p:.4f})"
-    )
+    return [
+        f"BTC ΔJV = {btc_d:+.6f}{stars(btc_p)} (p = {btc_p:.4f})",
+        f"ETH ΔJV = {eth_d:+.6f}{stars(eth_p)} (p = {eth_p:.4f})",
+    ]
 
 
-def short_run_cell(qmle_row: pd.Series) -> str:
-    return (
+def short_run_cell(qmle_row: pd.Series) -> list[str]:
+    return [
         f"a12* = {qmle_row['a12_star_est']:+.4f}{stars(qmle_row['a12_star_p'])} "
-        f"(p = {qmle_row['a12_star_p']:.4f}); "
+        f"(p = {qmle_row['a12_star_p']:.4f})",
         f"a21* = {qmle_row['a21_star_est']:+.4f}{stars(qmle_row['a21_star_p'])} "
-        f"(p = {qmle_row['a21_star_p']:.4f})"
-    )
+        f"(p = {qmle_row['a21_star_p']:.4f})",
+    ]
 
 
-def long_run_cell(qmle_row: pd.Series) -> str:
-    return (
+def long_run_cell(qmle_row: pd.Series) -> list[str]:
+    return [
         f"g12* = {qmle_row['g12_star_est']:+.4f}{stars(qmle_row['g12_star_p'])} "
-        f"(p = {qmle_row['g12_star_p']:.4f}); "
+        f"(p = {qmle_row['g12_star_p']:.4f})",
         f"g21* = {qmle_row['g21_star_est']:+.4f}{stars(qmle_row['g21_star_p'])} "
-        f"(p = {qmle_row['g21_star_p']:.4f})"
-    )
+        f"(p = {qmle_row['g21_star_p']:.4f})",
+    ]
 
 
-def short_run_cell_paper() -> str:
+def short_run_cell_paper() -> list[str]:
     """Use the paper's Table 5 published values (break = 2023-10-23)."""
-    a12, a12p = PAPER_BASELINE_TABLE5["a12_star"]
-    a21, a21p = PAPER_BASELINE_TABLE5["a21_star"]
-    return (
-        f"a12* = {a12:+.3f}*** (p < 0.001); "
-        f"a21* = {a21:+.3f}*** (p < 0.001)"
-    )
+    a12, _ = PAPER_BASELINE_TABLE5["a12_star"]
+    a21, _ = PAPER_BASELINE_TABLE5["a21_star"]
+    return [
+        f"a12* = {a12:+.3f}*** (p < 0.001)",
+        f"a21* = {a21:+.3f}*** (p < 0.001)",
+    ]
 
 
-def long_run_cell_paper() -> str:
+def long_run_cell_paper() -> list[str]:
     """Use the paper's Table 5 published values (break = 2023-10-23)."""
-    g12, g12p = PAPER_BASELINE_TABLE5["g12_star"]
-    g21, g21p = PAPER_BASELINE_TABLE5["g21_star"]
-    return (
-        f"g12* = {g12:+.3f}*** (p < 0.001); "
-        f"g21* = {g21:+.3f}*** (p < 0.001)"
-    )
+    g12, _ = PAPER_BASELINE_TABLE5["g12_star"]
+    g21, _ = PAPER_BASELINE_TABLE5["g21_star"]
+    return [
+        f"g12* = {g12:+.3f}*** (p < 0.001)",
+        f"g21* = {g21:+.3f}*** (p < 0.001)",
+    ]
 
 
-def write_cell(cell, text: str, *, font_size: int = 9, bold: bool = False) -> None:
+def _clear_paragraph(para) -> None:
+    """Remove all runs from a paragraph but keep the paragraph element."""
+    from docx.oxml.ns import qn
+    for child in list(para._p):
+        if child.tag in (qn("w:r"), qn("w:hyperlink")):
+            para._p.remove(child)
+
+
+def write_cell(
+    cell,
+    lines: list[str] | str,
+    *,
+    bold: bool = False,
+    align: str = "left",
+    font_size: Pt = CELL_SIZE,
+) -> None:
+    """Write one or more lines of text into a Word table cell.
+
+    Each line becomes its own paragraph inside the cell. The font is
+    forced to Times New Roman to match the paper's body convention.
+    """
+    if isinstance(lines, str):
+        lines = [lines]
+
     cell.text = ""
-    para = cell.paragraphs[0]
+    cell.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+
+    align_map = {
+        "left": WD_PARAGRAPH_ALIGNMENT.LEFT,
+        "center": WD_PARAGRAPH_ALIGNMENT.CENTER,
+        "right": WD_PARAGRAPH_ALIGNMENT.RIGHT,
+    }
+    para_align = align_map.get(align, WD_PARAGRAPH_ALIGNMENT.LEFT)
+
+    for i, line in enumerate(lines):
+        para = cell.paragraphs[0] if i == 0 else cell.add_paragraph()
+        _clear_paragraph(para)
+        para.alignment = para_align
+        para.paragraph_format.space_before = Pt(0)
+        para.paragraph_format.space_after = Pt(0)
+        run = para.add_run(line)
+        run.font.name = BODY_FONT
+        run.font.size = font_size
+        run.bold = bold
+
+
+def style_paragraph(para, text: str, *, size: Pt, bold: bool = False, align: str = "left") -> None:
+    """Replace a paragraph's content with styled Times New Roman text."""
+    _clear_paragraph(para)
+    align_map = {
+        "left": WD_PARAGRAPH_ALIGNMENT.LEFT,
+        "center": WD_PARAGRAPH_ALIGNMENT.CENTER,
+        "right": WD_PARAGRAPH_ALIGNMENT.RIGHT,
+        "justify": WD_PARAGRAPH_ALIGNMENT.JUSTIFY,
+    }
+    para.alignment = align_map.get(align, WD_PARAGRAPH_ALIGNMENT.LEFT)
     run = para.add_run(text)
-    run.font.size = Pt(font_size)
+    run.font.name = BODY_FONT
+    run.font.size = size
     run.bold = bold
 
 
@@ -188,15 +255,18 @@ def main() -> None:
             f"Expected a 4x4 table, got {len(table.rows)} x {len(table.columns)}."
         )
 
-    # Header row: keep as-is. Format the date label cells in column 0.
     date_label = {
-        date(2023, 8, 29): "Aug 29, 2023 (Grayscale court ruling)",
-        date(2023, 10, 23): "Oct 23, 2023 (DTCC tweet / Grayscale closure — paper baseline)",
-        date(2024, 1, 10): "Jan 10, 2024 (SEC official approval)",
+        date(2023, 8, 29): "Aug 29, 2023",
+        date(2023, 10, 23): "Oct 23, 2023",
+        date(2024, 1, 10): "Jan 10, 2024",
+    }
+    date_subtitle = {
+        date(2023, 8, 29): "Grayscale court ruling",
+        date(2023, 10, 23): "Paper baseline",
+        date(2024, 1, 10): "SEC official approval",
     }
 
-    # Build a mapping from break_date -> (jump_cell, short_cell, long_cell)
-    rows_by_date: dict[date, dict[str, str]] = {}
+    rows_by_date: dict[date, dict[str, list[str]]] = {}
     for _, qrow in qmle.iterrows():
         bd = qrow["break_date"]
         is_baseline = bd == date(2023, 10, 23)
@@ -212,34 +282,131 @@ def main() -> None:
             "long": long_,
         }
 
-    # Map docx rows 1, 2, 3 to break dates in chronological order
-    chrono = [date(2023, 8, 29), date(2023, 10, 23), date(2024, 1, 10)]
+    # ---- Header row (row 0): bold, centered, Times New Roman 10pt ----
+    headers = ["Dates", "Δ Jump Volatility", "Δ Short-run Spillover", "Δ Long-run Spillover"]
+    for c, h in enumerate(headers):
+        write_cell(table.rows[0].cells[c], h, bold=True, align="center", font_size=HEADER_SIZE)
 
+    # ---- Data rows (rows 1-3) in chronological order ----
+    chrono = [date(2023, 8, 29), date(2023, 10, 23), date(2024, 1, 10)]
     for i, bd in enumerate(chrono, start=1):
         is_baseline = bd == date(2023, 10, 23)
-        write_cell(table.rows[i].cells[0], date_label[bd], font_size=10, bold=is_baseline)
-        write_cell(table.rows[i].cells[1], rows_by_date[bd]["jump"], font_size=9, bold=is_baseline)
-        write_cell(table.rows[i].cells[2], rows_by_date[bd]["short"], font_size=9, bold=is_baseline)
-        write_cell(table.rows[i].cells[3], rows_by_date[bd]["long"], font_size=9, bold=is_baseline)
+        # Date column: two lines, label + subtitle in italics-feel via parens
+        write_cell(
+            table.rows[i].cells[0],
+            [date_label[bd], f"({date_subtitle[bd]})"],
+            bold=is_baseline,
+            align="center",
+            font_size=CELL_SIZE,
+        )
+        # Data columns: two lines per cell (BTC/ETH or a12*/a21* etc.)
+        write_cell(table.rows[i].cells[1], rows_by_date[bd]["jump"], bold=is_baseline, align="left", font_size=CELL_SIZE)
+        write_cell(table.rows[i].cells[2], rows_by_date[bd]["short"], bold=is_baseline, align="left", font_size=CELL_SIZE)
+        write_cell(table.rows[i].cells[3], rows_by_date[bd]["long"], bold=is_baseline, align="left", font_size=CELL_SIZE)
 
-    # Append a methodological footnote paragraph below the table
-    footnote_text = (
-        "\nMethod note: ΔJV is the change in mean daily jump-variation "
-        "(JV = max(RV − CV, 0)) pre vs post break, with a Welch t-test "
-        "p-value. a12*, a21*, g12*, g21* are the structural-break shift "
-        "parameters in a BEKK(1,1) QMLE re-estimated independently at each "
-        "break date, with Bollerslev–Wooldridge sandwich standard errors. "
-        "Significance: * p < 0.10, ** p < 0.05, *** p < 0.01. The bold row "
-        "(Oct 23, 2023) is the paper's baseline. Pattern: at the baseline date "
-        "all four spillover-shift parameters are signed as expected and three "
-        "of four are individually significant; at Aug 29 and Jan 10 the "
-        "signal weakens (notably a12* is insignificant on Jan 10), supporting "
-        "the paper's choice of Oct 23 as the regime-change date."
+    # ---- Reformat surrounding paragraphs to match the paper's caption convention ----
+    #
+    # Paper convention (verified against Table 5 / Table 16 in main_paper.docx):
+    #   1. Caption paragraph: bold "Table N. <Title>"
+    #   2. Description paragraph: plain prose explaining the table contents,
+    #      methodology, and significance notation.
+    #   3. The table itself (no footnote below).
+    #
+    # The template has a title at P0 plus a list of bullets describing the
+    # alternative dates and re-estimated quantities. We collapse the bullets
+    # into a single description paragraph (paper style), keeping only:
+    #   - the title
+    #   - a description paragraph (replaces the bullets)
+
+    # 1. Caption — keep the existing title text but restyle.
+    style_paragraph(
+        doc.paragraphs[0],
+        "Table 7. Robustness Test: Structural Break Comparison Across Alternative ETF Dates",
+        size=TITLE_SIZE,
+        bold=True,
+        align="left",
     )
-    para = doc.add_paragraph()
-    run = para.add_run(footnote_text)
-    run.font.size = Pt(9)
-    run.font.color.rgb = RGBColor(0x44, 0x44, 0x44)
+
+    # 2. Build the description paragraph(s). Detect the description block
+    # paragraphs (everything between the title and the table).
+    body_iter = list(doc.element.body)
+    from docx.oxml.ns import qn
+    title_el = doc.paragraphs[0]._p
+    table_el = table._tbl
+    description_paras = []
+    started = False
+    for el in body_iter:
+        if el is title_el:
+            started = True
+            continue
+        if el is table_el:
+            break
+        if started and el.tag == qn("w:p"):
+            description_paras.append(el)
+
+    # Empty out all existing description paragraphs.
+    for p_el in description_paras:
+        # Strip all runs inside; replace with empty paragraph
+        for child in list(p_el):
+            p_el.remove(child)
+
+    # If we have at least 2 paragraphs of slack, repurpose two of them:
+    # one for the description, one for blank spacing.
+    description_text = (
+        "Table 7 reports the robustness of the paper's main BEKK-GARCH "
+        "spillover findings across three candidate structural-break dates "
+        "tied to the Bitcoin ETF approval cycle: August 29, 2023 (Grayscale "
+        "court ruling), October 23, 2023 (DTCC listing attention and Grayscale "
+        "case closure — the paper's baseline), and January 10, 2024 (official "
+        "SEC approval). For each date we report (i) the change in mean daily "
+        "jump variation (ΔJV) for Bitcoin and Ethereum, with Welch (unequal-"
+        "variance) t-test p-values, and (ii) the structural-break shift "
+        "parameters of a bivariate BEKK(1,1) model — a12*, a21* for short-run "
+        "shock spillovers and g12*, g21* for long-run volatility-persistence "
+        "spillovers — estimated by Quasi-Maximum Likelihood with Bollerslev–"
+        "Wooldridge sandwich standard errors. The October 23, 2023 row "
+        "reproduces the paper's published Table 5 estimates; the alternative-"
+        "date rows are independently re-estimated for this robustness check. "
+        "Statistical significance is denoted by asterisks at the *10%, **5%, "
+        "and ***1% levels."
+    )
+
+    if description_paras:
+        # First paragraph slot: the description text.
+        first = description_paras[0]
+        # Re-attach a run with styled text
+        from docx.oxml import OxmlElement
+        new_run = OxmlElement("w:r")
+        rPr = OxmlElement("w:rPr")
+        rFonts = OxmlElement("w:rFonts")
+        rFonts.set(qn("w:ascii"), BODY_FONT)
+        rFonts.set(qn("w:hAnsi"), BODY_FONT)
+        rPr.append(rFonts)
+        sz = OxmlElement("w:sz")
+        sz.set(qn("w:val"), str(int(DESC_SIZE.pt * 2)))
+        rPr.append(sz)
+        new_run.append(rPr)
+        t = OxmlElement("w:t")
+        t.text = description_text
+        t.set(qn("xml:space"), "preserve")
+        new_run.append(t)
+        first.append(new_run)
+
+    # ---- Remove any paragraphs after the table (no footnote, paper convention) ----
+    body = doc.element.body
+    after_table = False
+    to_remove = []
+    for el in list(body):
+        if el is table_el:
+            after_table = True
+            continue
+        if after_table and el.tag == qn("w:p"):
+            # Keep the trailing sectPr-bearing paragraph (Word requires it)
+            sectPr = el.find(qn("w:pPr") + "/" + qn("w:sectPr"))
+            if sectPr is None:
+                to_remove.append(el)
+    for el in to_remove:
+        body.remove(el)
 
     doc.save(args.output)
     print(f"wrote {args.output}")
@@ -277,15 +444,18 @@ def main() -> None:
         # multi-pass would double-escape.
         return text.replace("*", r"\*")
 
+    def _join_lines(lines: list[str]) -> str:
+        """Join multi-line cell contents with HTML <br> for inline rendering."""
+        return "<br>".join(_escape_stars(line) for line in lines)
+
     for bd in chrono:
         cells = rows_by_date[bd]
-        label = date_label[bd]
-        jv = _escape_stars(cells["jump"])
-        sr = _escape_stars(cells["short"])
-        lr = _escape_stars(cells["long"])
+        subtitle = date_subtitle[bd]
+        label = f"**{date_label[bd]}**<br>_{subtitle}_"
+        jv = _join_lines(cells["jump"])
+        sr = _join_lines(cells["short"])
+        lr = _join_lines(cells["long"])
         if bd == date(2023, 10, 23):
-            # Wrap each cell in bold; significance stars are now safely escaped.
-            label = f"**{label}**"
             jv, sr, lr = f"**{jv}**", f"**{sr}**", f"**{lr}**"
         md_lines.append(f"| {label} | {jv} | {sr} | {lr} |\n")
 
